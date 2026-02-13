@@ -1,93 +1,127 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Minchi's Smart Menu</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 text-gray-800"><!-- CONFIG --><script>
-  // 🔧 CHANGE THIS TO YOUR FACEBOOK PAGE USERNAME OR PAGE ID
+
+<body class="bg-gray-50 text-gray-800">
+
+<script>
+  /* 🔧 CONFIG */
   const FB_PAGE = "minchis.dvo";
 
-  // 🧾 MENU DATA (You can edit this anytime)
-  const MENU = [
-    {
-      category: "Rice Meals",
-      items: [
-        { id: 1, name: "B2 - Chicken Paa BBQ Rice", price: 125, options: ["Extra Egg", "Extra Sauce"] },
-        { id: 2, name: "B3 - Chicken Pecho BBQ Rice", price: 145, options: [] }
-      ]
-    },
-    {
-      category: "Drinks",
-      items: [
-        { id: 3, name: "Iced Tea", price: 40, options: ["Small", "Medium", "Large"] },
-        { id: 4, name: "Bottled Water", price: 25, options: [] }
-      ]
-    }
-  ];
-</script><div class="max-w-3xl mx-auto p-4">
+  // 🔗 PASTE YOUR GOOGLE SHEET CSV LINK HERE
+  const SHEET_URL = "PASTE_YOUR_CSV_LINK_HERE";
+
+  const order = {};
+</script>
+
+<div class="max-w-3xl mx-auto p-4">
   <h1 class="text-3xl font-bold text-center mb-2">📱 Smart Menu</h1>
-  <p class="text-center text-sm mb-6">Order via Messenger • Dine-in or Pick-up</p>  <!-- CUSTOMER INFO -->  <div class="bg-white p-4 rounded-xl shadow mb-6">
+  <p class="text-center text-sm mb-6">Order via Messenger • Dine-in or Pick-up</p>
+
+  <!-- CUSTOMER INFO -->
+  <div class="bg-white p-4 rounded-xl shadow mb-6">
     <input id="customerName" class="w-full border p-2 rounded mb-2" placeholder="Your Name" />
     <input id="tableNumber" class="w-full border p-2 rounded" placeholder="Table No. / Pickup" />
-  </div>  <!-- MENU -->  <div id="menu"></div>  <!-- SEND ORDER -->  <button onclick="sendToMessenger()" class="w-full bg-blue-600 text-white py-3 rounded-xl text-lg font-semibold mt-6">
+  </div>
+
+  <!-- MENU -->
+  <div id="menu"></div>
+
+  <!-- SEND ORDER -->
+  <button onclick="sendToMessenger()" class="w-full bg-blue-600 text-white py-3 rounded-xl text-lg font-semibold mt-6">
     Send Order to Messenger
   </button>
-</div><script>
-  const order = {};
+</div>
 
-  function renderMenu() {
-    const menuDiv = document.getElementById("menu");
-    MENU.forEach(section => {
-      const cat = document.createElement("div");
-      cat.innerHTML = `<h2 class='text-xl font-bold mt-6 mb-2'>${section.category}</h2>`;
+<script>
+async function loadMenu() {
+  const res = await fetch(SHEET_URL);
+  const text = await res.text();
+  const rows = text.split("\n").slice(1);
 
-      section.items.forEach(item => {
-        const div = document.createElement("div");
-        div.className = "bg-white p-4 rounded-xl shadow mb-3";
-        div.innerHTML = `
-          <div class='flex justify-between items-center'>
-            <div>
-              <p class='font-semibold'>${item.name}</p>
-              <p class='text-sm'>₱${item.price}</p>
-            </div>
-            <input type='number' min='0' value='0' class='w-16 border rounded p-1'
-              onchange='updateOrder(${item.id}, "${item.name}", ${item.price}, this.value)' />
+  const menu = {};
+  let id = 1;
+
+  rows.forEach(row => {
+    if (!row.trim()) return;
+    const [category, name, price, soldOut] = row.split(",");
+
+    if (!menu[category]) menu[category] = [];
+    menu[category].push({
+      id: id++,
+      name,
+      price: Number(price),
+      soldOut: soldOut.trim().toUpperCase() === "TRUE"
+    });
+  });
+
+  renderMenu(menu);
+}
+
+function renderMenu(menu) {
+  const menuDiv = document.getElementById("menu");
+  menuDiv.innerHTML = "";
+
+  Object.keys(menu).forEach(category => {
+    const section = document.createElement("div");
+    section.innerHTML = `<h2 class="text-xl font-bold mt-6 mb-2">${category}</h2>`;
+
+    menu[category].forEach(item => {
+      const disabled = item.soldOut ? "opacity-50 pointer-events-none" : "";
+      const label = item.soldOut ? "❌ SOLD OUT" : `₱${item.price}`;
+
+      const div = document.createElement("div");
+      div.className = `bg-white p-4 rounded-xl shadow mb-3 ${disabled}`;
+      div.innerHTML = `
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="font-semibold">${item.name}</p>
+            <p class="text-sm">${label}</p>
           </div>
-        `;
-        cat.appendChild(div);
-      });
-
-      menuDiv.appendChild(cat);
-    });
-  }
-
-  function updateOrder(id, name, price, qty) {
-    if (qty > 0) {
-      order[id] = { name, price, qty };
-    } else {
-      delete order[id];
-    }
-  }
-
-  function sendToMessenger() {
-    let message = `📌 New Order%0A`;
-    message += `Name: ${document.getElementById('customerName').value}%0A`;
-    message += `Table/Pickup: ${document.getElementById('tableNumber').value}%0A%0AOrder:%0A`;
-
-    let total = 0;
-    Object.values(order).forEach(item => {
-      total += item.price * item.qty;
-      message += `• ${item.name} x${item.qty}%0A`;
+          <input type="number" min="0" value="0"
+            class="w-16 border rounded p-1"
+            ${item.soldOut ? "disabled" : ""}
+            onchange="updateOrder(${item.id}, '${item.name}', ${item.price}, this.value)" />
+        </div>
+      `;
+      section.appendChild(div);
     });
 
-    message += `%0ATotal: ₱${total}`;
+    menuDiv.appendChild(section);
+  });
+}
 
-    const url = `https://m.me/${FB_PAGE}?text=${message}`;
-    window.open(url, '_blank');
+function updateOrder(id, name, price, qty) {
+  qty = Number(qty);
+  if (qty > 0) {
+    order[id] = { name, price, qty };
+  } else {
+    delete order[id];
   }
+}
 
-  renderMenu();
-</script></body>
+function sendToMessenger() {
+  let message = `📌 New Order%0A`;
+  message += `Name: ${customerName.value}%0A`;
+  message += `Table/Pickup: ${tableNumber.value}%0A%0AOrder:%0A`;
+
+  let total = 0;
+  Object.values(order).forEach(item => {
+    total += item.price * item.qty;
+    message += `• ${item.name} x${item.qty}%0A`;
+  });
+
+  message += `%0ATotal: ₱${total}`;
+  window.open(`https://m.me/${FB_PAGE}?text=${message}`, "_blank");
+}
+
+loadMenu();
+</script>
+
+</body>
 </html>
