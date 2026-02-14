@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Minchi's Smart Menu</title>
+<title>Smart Menu</title>
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body class="bg-gray-50 text-gray-800">
 
 <script>
-/* ===== CONFIG ===== */
+/* ===== CONFIG (EDIT ONLY THIS) ===== */
 const FB_PAGE = "minchis.dvo";
-const MENU_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT9WLpP8kwbfhGMJE-OAsYUHVV-WgbhiGGzCx4AwUM2mTjmai2iSpLaX1RctwDAcVh9XpfXKLPkGbeT/pubhtml?gid=0&single=truetml";
+const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
+const SHEET_NAME = "Menu";
 
 const order = {};
 </script>
@@ -63,24 +64,27 @@ function toggleAddress() {
 }
 
 async function loadMenu() {
-  const res = await fetch(MENU_CSV);
+  const url =
+    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tq=SELECT%20A,B,C,D`;
+
+  const res = await fetch(url);
   const text = await res.text();
-  const rows = text.split("\n").slice(1);
+  const json = JSON.parse(text.substring(47).slice(0, -2));
+  const rows = json.table.rows;
 
   const menu = {};
   let id = 1;
 
-  rows.forEach(row => {
-    if (!row.trim()) return;
-    const [cat, name, price, sold] = row.split(",");
+  rows.forEach(r => {
+    if (!r.c[0]) return;
+
+    const cat = r.c[0].v;
+    const name = r.c[1].v;
+    const price = Number(r.c[2].v);
+    const soldOut = String(r.c[3].v).toUpperCase() === "TRUE";
 
     if (!menu[cat]) menu[cat] = [];
-    menu[cat].push({
-      id: id++,
-      name,
-      price: Number(price),
-      soldOut: sold.trim().toUpperCase() === "TRUE"
-    });
+    menu[cat].push({ id: id++, name, price, soldOut });
   });
 
   renderMenu(menu);
@@ -129,18 +133,18 @@ function sendOrder() {
   const items = Object.values(order);
   if (!items.length) return alert("No items selected");
 
-  const orderType = document.querySelector('input[name="orderType"]:checked').value;
-  const address = orderType === "Delivery" ? deliveryAddress.value : "";
+  const type = document.querySelector('input[name="orderType"]:checked').value;
+  const address = type === "Delivery" ? deliveryAddress.value : "";
 
   let total = 0;
   items.forEach(i => total += i.price * i.qty);
 
   let msg = `📌 New Order%0A`;
   msg += `Name: ${customerName.value}%0A`;
-  msg += `Type: ${orderType}%0A`;
+  msg += `Type: ${type}%0A`;
   if (address) msg += `Address: ${address}%0A`;
-
   msg += `%0AOrder:%0A`;
+
   items.forEach(i => msg += `• ${i.name} x${i.qty}%0A`);
   msg += `%0ATotal: ₱${total}`;
 
