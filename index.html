@@ -3,13 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Menu with Cart</title>
+<title>Smart Menu</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-/* Modal background */
-#cartModal {
-  background-color: rgba(0,0,0,0.5);
-}
+#cartModal { background-color: rgba(0,0,0,0.5); }
 </style>
 </head>
 <body class="bg-gray-50 text-gray-800 pb-28">
@@ -23,11 +20,16 @@ const SHEET_NAME = "Menu";
 const order = {};
 let cartTotal = 0;
 let cartQty = 0;
-const deliveryFee = 0; // Change if needed
+const deliveryFee = 0; // optional
 </script>
 
 <div class="max-w-3xl mx-auto p-4">
-  <h1 class="text-3xl font-bold text-center mb-1">📱 Minchi's Smart Menu</h1>
+  <!-- Logo -->
+  <div class="text-center mb-2">
+    <img src="https://www.facebook.com/photo/?fbid=1298553828978847&set=a.452629403571298" alt="Logo" class="mx-auto h-16 w-auto">
+  </div>
+
+  <h1 class="text-3xl font-bold text-center mb-1">📱 Smart Menu</h1>
   <p class="text-center text-sm mb-4">Dine-in • Pickup • Delivery</p>
 
   <!-- Customer Info -->
@@ -61,7 +63,7 @@ const deliveryFee = 0; // Change if needed
     <p class="font-semibold">🛒 <span id="cartQty">0</span> item(s)</p>
     <p class="text-sm text-gray-600">Total: ₱<span id="cartTotal">0</span></p>
   </div>
-  <button class="bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold">
+  <button class="bg-red-600 text-white px-6 py-2 rounded-xl font-semibold">
     View Cart
   </button>
 </div>
@@ -77,7 +79,7 @@ const deliveryFee = 0; // Change if needed
     </div>
     <div class="flex justify-between">
       <button onclick="closeCartModal()" class="bg-gray-300 px-4 py-2 rounded-xl font-semibold">Close</button>
-      <button onclick="sendOrder()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold">Confirm Order</button>
+      <button onclick="sendOrder()" class="bg-red-600 text-white px-4 py-2 rounded-xl font-semibold">Confirm Order</button>
     </div>
   </div>
 </div>
@@ -105,10 +107,11 @@ async function loadMenu() {
       const cat = r.c[0].v;
       const name = r.c[1].v;
       const price = Number(r.c[2].v);
-      const soldOut = String(r.c[3].v).toUpperCase() === "TRUE";
+      const soldOut = String(r.c[3]?.v || "").toUpperCase() === "TRUE";
+      const spiceOption = String(r.c[4]?.v || "").toUpperCase() === "YES";
 
       if (!menu[cat]) menu[cat] = [];
-      menu[cat].push({ id: id++, name, price, soldOut });
+      menu[cat].push({ id: id++, name, price, soldOut, spiceOption });
     });
 
     renderMenu(menu);
@@ -117,7 +120,7 @@ async function loadMenu() {
   }
 }
 
-// Render menu with dropdown categories
+// Render menu with dropdown categories and conditional spice options
 function renderMenu(menu) {
   const menuDiv = document.getElementById("menu");
   menuDiv.innerHTML = "";
@@ -142,21 +145,36 @@ function renderMenu(menu) {
 
       const div = document.createElement("div");
       div.className = `py-3 border-t ${disabled}`;
+      let spiceHTML = "";
+      if (item.spiceOption) {
+        spiceHTML = `
+          <div>
+            <label class="text-sm">Spice Level:</label>
+            <select id="option-${item.id}" class="w-full border rounded p-1 text-sm">
+              <option value="Original">Original</option>
+              <option value="Mild Spicy">Mild Spicy</option>
+              <option value="Spicy">Spicy</option>
+              <option value="Extra Spicy">Extra Spicy</option>
+            </select>
+          </div>
+        `;
+      }
+
       div.innerHTML = `
-        <div class="flex justify-between items-center">
+        <div class="flex justify-between items-center mb-2">
           <div>
             <p class="font-semibold">${item.name}</p>
             <p class="text-sm">${label}</p>
           </div>
           <div class="flex items-center gap-2">
-            <button class="px-3 py-1 bg-gray-200 rounded"
-              onclick="changeQty(${item.id}, '${item.name}', ${item.price}, -1)">−</button>
+            <button class="px-3 py-1 bg-gray-200 rounded" onclick="changeQty(${item.id}, '${item.name}', ${item.price}, -1)">−</button>
             <span id="qty-${item.id}" class="w-6 text-center">0</span>
-            <button class="px-3 py-1 bg-blue-600 text-white rounded"
-              onclick="changeQty(${item.id}, '${item.name}', ${item.price}, 1)">+</button>
+            <button class="px-3 py-1 bg-red-600 text-white rounded" onclick="changeQty(${item.id}, '${item.name}', ${item.price}, 1)">+</button>
           </div>
         </div>
+        ${spiceHTML}
       `;
+
       content.appendChild(div);
     });
 
@@ -172,9 +190,7 @@ function toggleCategory(btn) {
 }
 
 // Vibrate on + button
-function vibrate() {
-  if (navigator.vibrate) navigator.vibrate(30);
-}
+function vibrate() { if (navigator.vibrate) navigator.vibrate(30); }
 
 // Update floating cart
 function updateCart() {
@@ -191,15 +207,16 @@ function updateCart() {
 
 // Change quantity
 function changeQty(id, name, price, delta) {
-  if (!order[id]) order[id] = { name, price, qty: 0 };
+  if (!order[id]) {
+    const optionEl = document.getElementById(`option-${id}`);
+    const spice = optionEl ? optionEl.value : "Original";
+    order[id] = { name, price, qty: 0, spice };
+    if(optionEl) optionEl.onchange = () => order[id].spice = optionEl.value;
+  }
   order[id].qty += delta;
   if (delta > 0) vibrate();
-  if (order[id].qty <= 0) {
-    delete order[id];
-    document.getElementById(`qty-${id}`).innerText = "0";
-  } else {
-    document.getElementById(`qty-${id}`).innerText = order[id].qty;
-  }
+  if (order[id].qty <= 0) { delete order[id]; document.getElementById(`qty-${id}`).innerText = "0"; } 
+  else { document.getElementById(`qty-${id}`).innerText = order[id].qty; }
   updateCart();
 }
 
@@ -208,18 +225,18 @@ function openCartModal() {
   const modal = document.getElementById("cartModal");
   const itemsDiv = document.getElementById("cartItems");
   itemsDiv.innerHTML = "";
-  Object.values(order).forEach(i => {
+  Object.entries(order).forEach(([id, i]) => {
     const div = document.createElement("div");
     div.className = "flex justify-between items-center border-b py-2";
     div.innerHTML = `
       <div>
-        <p class="font-semibold">${i.name}</p>
+        <p class="font-semibold">${i.name} (${i.spice})</p>
         <p class="text-sm">₱${i.price} x ${i.qty} = ₱${i.price * i.qty}</p>
       </div>
       <div class="flex items-center gap-1">
-        <button class="px-2 py-1 bg-gray-200 rounded" onclick="changeQty(${getKeyByValue(order, i)}, '${i.name}', ${i.price}, -1); refreshCartModal()">−</button>
-        <button class="px-2 py-1 bg-blue-600 text-white rounded" onclick="changeQty(${getKeyByValue(order, i)}, '${i.name}', ${i.price}, 1); refreshCartModal()">+</button>
-        <button class="px-2 py-1 bg-red-500 text-white rounded" onclick="removeItem(${getKeyByValue(order, i)}); refreshCartModal()">✕</button>
+        <button class="px-2 py-1 bg-gray-200 rounded" onclick="changeQty(${id}, '${i.name}', ${i.price}, -1); refreshCartModal()">−</button>
+        <button class="px-2 py-1 bg-red-600 text-white rounded" onclick="changeQty(${id}, '${i.name}', ${i.price}, 1); refreshCartModal()">+</button>
+        <button class="px-2 py-1 bg-red-500 text-white rounded" onclick="removeItem(${id}); refreshCartModal()">✕</button>
       </div>
     `;
     itemsDiv.appendChild(div);
@@ -228,24 +245,16 @@ function openCartModal() {
   modal.classList.remove("hidden");
 }
 
-// Refresh modal content after changing quantities inside modal
-function refreshCartModal() {
-  openCartModal();
-}
+// Refresh modal content
+function refreshCartModal() { openCartModal(); }
 
 // Remove item completely
-function removeItem(id) {
-  delete order[id];
-  document.getElementById(`qty-${id}`).innerText = "0";
-  updateCart();
-}
+function removeItem(id) { delete order[id]; document.getElementById(`qty-${id}`).innerText = "0"; updateCart(); }
 
 // Close modal
-function closeCartModal() {
-  document.getElementById("cartModal").classList.add("hidden");
-}
+function closeCartModal() { document.getElementById("cartModal").classList.add("hidden"); }
 
-// Send order to Messenger
+// Send order
 function sendOrder() {
   if (!cartQty) return alert("No items selected");
   const type = document.querySelector('input[name="orderType"]:checked').value;
@@ -255,14 +264,9 @@ function sendOrder() {
   msg += `Type: ${type}%0A`;
   if (address) msg += `Address: ${address}%0A`;
   msg += `%0AOrder:%0A`;
-  Object.values(order).forEach(i => msg += `• ${i.name} x${i.qty}%0A`);
+  Object.values(order).forEach(i => msg += `• ${i.name} (${i.spice}) x${i.qty}%0A`);
   msg += `%0ATotal: ₱${cartTotal + deliveryFee}`;
   window.open(`https://m.me/${FB_PAGE}?text=${msg}`, "_blank");
-}
-
-// Helper to get key from value
-function getKeyByValue(obj, value) {
-  return Object.keys(obj).find(key => obj[key] === value);
 }
 
 loadMenu();
