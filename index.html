@@ -3,69 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Menu</title>
+<title>Smart Menu with Cart</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<style>
+/* Modal background */
+#cartModal {
+  background-color: rgba(0,0,0,0.5);
+}
+</style>
 </head>
-
-<body class="bg-gray-50 text-gray-800 pb-24">
+<body class="bg-gray-50 text-gray-800 pb-28">
 
 <script>
 /* ===== CONFIG ===== */
-const FB_PAGE = "minchis.dvo";
-const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
+const FB_PAGE = "minchis.dvo"; // Your FB Page
+const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U"; // Your Google Sheet ID
 const SHEET_NAME = "Menu";
 
 const order = {};
 let cartTotal = 0;
 let cartQty = 0;
+const deliveryFee = 0; // Change if needed
 </script>
 
 <div class="max-w-3xl mx-auto p-4">
-  <h1 class="text-3xl font-bold text-center mb-2">📱 Smart Menu</h1>
-  <p class="text-center text-sm mb-6">Dine-in • Pickup • Delivery</p>
+  <h1 class="text-3xl font-bold text-center mb-1">📱 Smart Menu</h1>
+  <p class="text-center text-sm mb-4">Dine-in • Pickup • Delivery</p>
 
-  <!-- CUSTOMER INFO -->
+  <!-- Customer Info -->
   <div class="bg-white p-4 rounded-xl shadow mb-4">
     <input id="customerName" class="w-full border p-2 rounded mb-2" placeholder="Your Name">
     <input id="tableNumber" class="w-full border p-2 rounded" placeholder="Table No. / Pickup">
   </div>
 
-  <!-- ORDER TYPE -->
+  <!-- Order Type -->
   <div class="bg-white p-4 rounded-xl shadow mb-4">
     <p class="font-semibold mb-2">Order Type</p>
-
     <label class="block"><input type="radio" name="orderType" value="Dine-in" checked onchange="toggleAddress()"> Dine-in</label>
     <label class="block"><input type="radio" name="orderType" value="Pickup" onchange="toggleAddress()"> Pickup</label>
     <label class="block"><input type="radio" name="orderType" value="Delivery" onchange="toggleAddress()"> Delivery</label>
-
-    <input id="deliveryAddress"
-      class="w-full border p-2 rounded mt-2 hidden"
-      placeholder="Delivery Address">
+    <input id="deliveryAddress" class="w-full border p-2 rounded mt-2 hidden" placeholder="Delivery Address">
   </div>
 
-  <!-- MENU -->
+  <!-- Menu -->
   <div id="menu"></div>
 
   <p id="error" class="text-center text-red-600 font-semibold mt-4 hidden">
-    ⚠️ Menu failed to load. Check Google Sheet sharing & Sheet name.
+    ⚠️ Menu failed to load
   </p>
 </div>
 
-<!-- FLOATING CART -->
+<!-- Floating Cart -->
 <div id="cartBar"
-  class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex justify-between items-center hidden">
+  class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex justify-between items-center hidden cursor-pointer"
+  onclick="openCartModal()">
   <div>
-    <p class="font-semibold">
-      🛒 <span id="cartQty">0</span> item(s)
-    </p>
-    <p class="text-sm text-gray-600">
-      Total: ₱<span id="cartTotal">0</span>
-    </p>
+    <p class="font-semibold">🛒 <span id="cartQty">0</span> item(s)</p>
+    <p class="text-sm text-gray-600">Total: ₱<span id="cartTotal">0</span></p>
   </div>
-  <button onclick="sendOrder()"
-    class="bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold">
-    Send Order
+  <button class="bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold">
+    View Cart
   </button>
+</div>
+
+<!-- Cart Modal -->
+<div id="cartModal" class="fixed inset-0 hidden items-center justify-center">
+  <div class="bg-white rounded-xl max-w-md w-full p-4">
+    <h2 class="text-xl font-bold mb-4">🛒 Your Cart</h2>
+    <div id="cartItems" class="max-h-64 overflow-y-auto mb-4"></div>
+    <div class="flex justify-between font-semibold text-lg mb-4">
+      <span>Total:</span>
+      <span>₱<span id="modalTotal">0</span></span>
+    </div>
+    <div class="flex justify-between">
+      <button onclick="closeCartModal()" class="bg-gray-300 px-4 py-2 rounded-xl font-semibold">Close</button>
+      <button onclick="sendOrder()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold">Confirm Order</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -74,11 +88,10 @@ function toggleAddress() {
   deliveryAddress.classList.toggle("hidden", type !== "Delivery");
 }
 
+// Load menu from Google Sheet
 async function loadMenu() {
   try {
-    const url =
-      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
-
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
     const res = await fetch(url);
     const text = await res.text();
     const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
@@ -104,96 +117,152 @@ async function loadMenu() {
   }
 }
 
+// Render menu with dropdown categories
 function renderMenu(menu) {
   const menuDiv = document.getElementById("menu");
   menuDiv.innerHTML = "";
 
   Object.keys(menu).forEach(cat => {
     const section = document.createElement("div");
-    section.innerHTML = `<h2 class="text-xl font-bold mt-6 mb-2">${cat}</h2>`;
+    section.className = "mb-3 bg-white rounded-xl shadow";
+
+    section.innerHTML = `
+      <button onclick="toggleCategory(this)" class="w-full flex justify-between items-center p-4 font-bold text-lg">
+        <span>${cat}</span>
+        <span class="text-xl">▾</span>
+      </button>
+      <div class="hidden px-4 pb-4"></div>
+    `;
+
+    const content = section.querySelector("div");
 
     menu[cat].forEach(item => {
       const disabled = item.soldOut ? "opacity-50 pointer-events-none" : "";
       const label = item.soldOut ? "❌ SOLD OUT" : `₱${item.price}`;
 
       const div = document.createElement("div");
-      div.className = `bg-white p-4 rounded-xl shadow mb-3 ${disabled}`;
+      div.className = `py-3 border-t ${disabled}`;
       div.innerHTML = `
         <div class="flex justify-between items-center">
           <div>
             <p class="font-semibold">${item.name}</p>
             <p class="text-sm">${label}</p>
           </div>
-
           <div class="flex items-center gap-2">
             <button class="px-3 py-1 bg-gray-200 rounded"
               onclick="changeQty(${item.id}, '${item.name}', ${item.price}, -1)">−</button>
-
             <span id="qty-${item.id}" class="w-6 text-center">0</span>
-
             <button class="px-3 py-1 bg-blue-600 text-white rounded"
               onclick="changeQty(${item.id}, '${item.name}', ${item.price}, 1)">+</button>
           </div>
         </div>
       `;
-      section.appendChild(div);
+      content.appendChild(div);
     });
 
     menuDiv.appendChild(section);
   });
 }
 
+// Toggle category
+function toggleCategory(btn) {
+  const content = btn.nextElementSibling;
+  content.classList.toggle("hidden");
+  btn.querySelector("span:last-child").innerText = content.classList.contains("hidden") ? "▾" : "▴";
+}
+
+// Vibrate on + button
 function vibrate() {
   if (navigator.vibrate) navigator.vibrate(30);
 }
 
+// Update floating cart
 function updateCart() {
   cartTotal = 0;
   cartQty = 0;
-
   Object.values(order).forEach(i => {
     cartQty += i.qty;
     cartTotal += i.qty * i.price;
   });
-
   document.getElementById("cartQty").innerText = cartQty;
   document.getElementById("cartTotal").innerText = cartTotal;
-
   document.getElementById("cartBar").classList.toggle("hidden", cartQty === 0);
 }
 
+// Change quantity
 function changeQty(id, name, price, delta) {
   if (!order[id]) order[id] = { name, price, qty: 0 };
   order[id].qty += delta;
-
   if (delta > 0) vibrate();
-
   if (order[id].qty <= 0) {
     delete order[id];
     document.getElementById(`qty-${id}`).innerText = "0";
   } else {
     document.getElementById(`qty-${id}`).innerText = order[id].qty;
   }
-
   updateCart();
 }
 
+// Open cart modal
+function openCartModal() {
+  const modal = document.getElementById("cartModal");
+  const itemsDiv = document.getElementById("cartItems");
+  itemsDiv.innerHTML = "";
+  Object.values(order).forEach(i => {
+    const div = document.createElement("div");
+    div.className = "flex justify-between items-center border-b py-2";
+    div.innerHTML = `
+      <div>
+        <p class="font-semibold">${i.name}</p>
+        <p class="text-sm">₱${i.price} x ${i.qty} = ₱${i.price * i.qty}</p>
+      </div>
+      <div class="flex items-center gap-1">
+        <button class="px-2 py-1 bg-gray-200 rounded" onclick="changeQty(${getKeyByValue(order, i)}, '${i.name}', ${i.price}, -1); refreshCartModal()">−</button>
+        <button class="px-2 py-1 bg-blue-600 text-white rounded" onclick="changeQty(${getKeyByValue(order, i)}, '${i.name}', ${i.price}, 1); refreshCartModal()">+</button>
+        <button class="px-2 py-1 bg-red-500 text-white rounded" onclick="removeItem(${getKeyByValue(order, i)}); refreshCartModal()">✕</button>
+      </div>
+    `;
+    itemsDiv.appendChild(div);
+  });
+  document.getElementById("modalTotal").innerText = cartTotal;
+  modal.classList.remove("hidden");
+}
+
+// Refresh modal content after changing quantities inside modal
+function refreshCartModal() {
+  openCartModal();
+}
+
+// Remove item completely
+function removeItem(id) {
+  delete order[id];
+  document.getElementById(`qty-${id}`).innerText = "0";
+  updateCart();
+}
+
+// Close modal
+function closeCartModal() {
+  document.getElementById("cartModal").classList.add("hidden");
+}
+
+// Send order to Messenger
 function sendOrder() {
   if (!cartQty) return alert("No items selected");
-
   const type = document.querySelector('input[name="orderType"]:checked').value;
   const address = type === "Delivery" ? deliveryAddress.value : "";
-
   let msg = `📌 New Order%0A`;
   msg += `Name: ${customerName.value}%0A`;
   msg += `Type: ${type}%0A`;
   if (address) msg += `Address: ${address}%0A`;
   msg += `%0AOrder:%0A`;
-
   Object.values(order).forEach(i => msg += `• ${i.name} x${i.qty}%0A`);
-  msg += `%0ATotal: ₱${cartTotal}`;
-
+  msg += `%0ATotal: ₱${cartTotal + deliveryFee}`;
   window.open(`https://m.me/${FB_PAGE}?text=${msg}`, "_blank");
+}
+
+// Helper to get key from value
+function getKeyByValue(obj, value) {
+  return Object.keys(obj).find(key => obj[key] === value);
 }
 
 loadMenu();
