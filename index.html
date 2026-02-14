@@ -10,7 +10,7 @@
 <body class="bg-gray-50 text-gray-800">
 
 <script>
-/* ===== CONFIG (EDIT ONLY THIS) ===== */
+/* ===== CONFIG ===== */
 const FB_PAGE = "minchis.dvo";
 const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
 const SHEET_NAME = "Menu";
@@ -31,26 +31,19 @@ const order = {};
   <!-- ORDER TYPE -->
   <div class="bg-white p-4 rounded-xl shadow mb-4">
     <p class="font-semibold mb-2">Order Type</p>
-
-    <label class="block">
-      <input type="radio" name="orderType" value="Dine-in" checked onchange="toggleAddress()"> Dine-in
-    </label>
-
-    <label class="block">
-      <input type="radio" name="orderType" value="Pickup" onchange="toggleAddress()"> Pickup
-    </label>
-
-    <label class="block">
-      <input type="radio" name="orderType" value="Delivery" onchange="toggleAddress()"> Delivery
-    </label>
-
-    <input id="deliveryAddress"
-      class="w-full border p-2 rounded mt-2 hidden"
-      placeholder="Delivery Address">
+    <label class="block"><input type="radio" name="orderType" value="Dine-in" checked onchange="toggleAddress()"> Dine-in</label>
+    <label class="block"><input type="radio" name="orderType" value="Pickup" onchange="toggleAddress()"> Pickup</label>
+    <label class="block"><input type="radio" name="orderType" value="Delivery" onchange="toggleAddress()"> Delivery</label>
+    <input id="deliveryAddress" class="w-full border p-2 rounded mt-2 hidden" placeholder="Delivery Address">
   </div>
 
   <!-- MENU -->
   <div id="menu"></div>
+
+  <!-- ERROR MESSAGE -->
+  <p id="error" class="text-center text-red-600 font-semibold mt-4 hidden">
+    ⚠️ Menu failed to load. Check Google Sheet sharing & Sheet name.
+  </p>
 
   <button onclick="sendOrder()" class="w-full bg-blue-600 text-white py-3 rounded-xl text-lg font-semibold mt-6">
     Send Order to Messenger
@@ -64,30 +57,38 @@ function toggleAddress() {
 }
 
 async function loadMenu() {
-  const url =
-    `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tq=SELECT%20A,B,C,D`;
+  try {
+    const url =
+      `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
 
-  const res = await fetch(url);
-  const text = await res.text();
-  const json = JSON.parse(text.substring(47).slice(0, -2));
-  const rows = json.table.rows;
+    const res = await fetch(url);
+    const text = await res.text();
 
-  const menu = {};
-  let id = 1;
+    const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
+    const rows = json.table.rows;
 
-  rows.forEach(r => {
-    if (!r.c[0]) return;
+    if (!rows || rows.length === 0) throw "No rows";
 
-    const cat = r.c[0].v;
-    const name = r.c[1].v;
-    const price = Number(r.c[2].v);
-    const soldOut = String(r.c[3].v).toUpperCase() === "TRUE";
+    const menu = {};
+    let id = 1;
 
-    if (!menu[cat]) menu[cat] = [];
-    menu[cat].push({ id: id++, name, price, soldOut });
-  });
+    rows.forEach(r => {
+      if (!r.c[0]) return;
 
-  renderMenu(menu);
+      const cat = r.c[0].v;
+      const name = r.c[1].v;
+      const price = Number(r.c[2].v);
+      const soldOut = String(r.c[3].v).toUpperCase() === "TRUE";
+
+      if (!menu[cat]) menu[cat] = [];
+      menu[cat].push({ id: id++, name, price, soldOut });
+    });
+
+    renderMenu(menu);
+  } catch (e) {
+    console.error(e);
+    document.getElementById("error").classList.remove("hidden");
+  }
 }
 
 function renderMenu(menu) {
