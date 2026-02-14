@@ -7,7 +7,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body class="bg-gray-50 text-gray-800">
+<body class="bg-gray-50 text-gray-800 pb-24">
 
 <script>
 /* ===== CONFIG ===== */
@@ -16,6 +16,8 @@ const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
 const SHEET_NAME = "Menu";
 
 const order = {};
+let cartTotal = 0;
+let cartQty = 0;
 </script>
 
 <div class="max-w-3xl mx-auto p-4">
@@ -31,22 +33,38 @@ const order = {};
   <!-- ORDER TYPE -->
   <div class="bg-white p-4 rounded-xl shadow mb-4">
     <p class="font-semibold mb-2">Order Type</p>
+
     <label class="block"><input type="radio" name="orderType" value="Dine-in" checked onchange="toggleAddress()"> Dine-in</label>
     <label class="block"><input type="radio" name="orderType" value="Pickup" onchange="toggleAddress()"> Pickup</label>
     <label class="block"><input type="radio" name="orderType" value="Delivery" onchange="toggleAddress()"> Delivery</label>
-    <input id="deliveryAddress" class="w-full border p-2 rounded mt-2 hidden" placeholder="Delivery Address">
+
+    <input id="deliveryAddress"
+      class="w-full border p-2 rounded mt-2 hidden"
+      placeholder="Delivery Address">
   </div>
 
   <!-- MENU -->
   <div id="menu"></div>
 
-  <!-- ERROR MESSAGE -->
   <p id="error" class="text-center text-red-600 font-semibold mt-4 hidden">
     ⚠️ Menu failed to load. Check Google Sheet sharing & Sheet name.
   </p>
+</div>
 
-  <button onclick="sendOrder()" class="w-full bg-blue-600 text-white py-3 rounded-xl text-lg font-semibold mt-6">
-    Send Order to Messenger
+<!-- FLOATING CART -->
+<div id="cartBar"
+  class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex justify-between items-center hidden">
+  <div>
+    <p class="font-semibold">
+      🛒 <span id="cartQty">0</span> item(s)
+    </p>
+    <p class="text-sm text-gray-600">
+      Total: ₱<span id="cartTotal">0</span>
+    </p>
+  </div>
+  <button onclick="sendOrder()"
+    class="bg-blue-600 text-white px-6 py-2 rounded-xl font-semibold">
+    Send Order
   </button>
 </div>
 
@@ -63,18 +81,14 @@ async function loadMenu() {
 
     const res = await fetch(url);
     const text = await res.text();
-
     const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
     const rows = json.table.rows;
-
-    if (!rows || rows.length === 0) throw "No rows";
 
     const menu = {};
     let id = 1;
 
     rows.forEach(r => {
       if (!r.c[0]) return;
-
       const cat = r.c[0].v;
       const name = r.c[1].v;
       const price = Number(r.c[2].v);
@@ -85,8 +99,7 @@ async function loadMenu() {
     });
 
     renderMenu(menu);
-  } catch (e) {
-    console.error(e);
+  } catch {
     document.getElementById("error").classList.remove("hidden");
   }
 }
@@ -111,10 +124,16 @@ function renderMenu(menu) {
             <p class="font-semibold">${item.name}</p>
             <p class="text-sm">${label}</p>
           </div>
-          <input type="number" min="0" value="0"
-            class="w-16 border rounded p-1"
-            ${item.soldOut ? "disabled" : ""}
-            onchange="updateOrder(${item.id}, '${item.name}', ${item.price}, this.value)">
+
+          <div class="flex items-center gap-2">
+            <button class="px-3 py-1 bg-gray-200 rounded"
+              onclick="changeQty(${item.id}, '${item.name}', ${item.price}, -1)">−</button>
+
+            <span id="qty-${item.id}" class="w-6 text-center">0</span>
+
+            <button class="px-3 py-1 bg-blue-600 text-white rounded"
+              onclick="changeQty(${item.id}, '${item.name}', ${item.price}, 1)">+</button>
+          </div>
         </div>
       `;
       section.appendChild(div);
@@ -124,21 +143,46 @@ function renderMenu(menu) {
   });
 }
 
-function updateOrder(id, name, price, qty) {
-  qty = Number(qty);
-  if (qty > 0) order[id] = { name, price, qty };
-  else delete order[id];
+function vibrate() {
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function updateCart() {
+  cartTotal = 0;
+  cartQty = 0;
+
+  Object.values(order).forEach(i => {
+    cartQty += i.qty;
+    cartTotal += i.qty * i.price;
+  });
+
+  document.getElementById("cartQty").innerText = cartQty;
+  document.getElementById("cartTotal").innerText = cartTotal;
+
+  document.getElementById("cartBar").classList.toggle("hidden", cartQty === 0);
+}
+
+function changeQty(id, name, price, delta) {
+  if (!order[id]) order[id] = { name, price, qty: 0 };
+  order[id].qty += delta;
+
+  if (delta > 0) vibrate();
+
+  if (order[id].qty <= 0) {
+    delete order[id];
+    document.getElementById(`qty-${id}`).innerText = "0";
+  } else {
+    document.getElementById(`qty-${id}`).innerText = order[id].qty;
+  }
+
+  updateCart();
 }
 
 function sendOrder() {
-  const items = Object.values(order);
-  if (!items.length) return alert("No items selected");
+  if (!cartQty) return alert("No items selected");
 
   const type = document.querySelector('input[name="orderType"]:checked').value;
   const address = type === "Delivery" ? deliveryAddress.value : "";
-
-  let total = 0;
-  items.forEach(i => total += i.price * i.qty);
 
   let msg = `📌 New Order%0A`;
   msg += `Name: ${customerName.value}%0A`;
@@ -146,8 +190,8 @@ function sendOrder() {
   if (address) msg += `Address: ${address}%0A`;
   msg += `%0AOrder:%0A`;
 
-  items.forEach(i => msg += `• ${i.name} x${i.qty}%0A`);
-  msg += `%0ATotal: ₱${total}`;
+  Object.values(order).forEach(i => msg += `• ${i.name} x${i.qty}%0A`);
+  msg += `%0ATotal: ₱${cartTotal}`;
 
   window.open(`https://m.me/${FB_PAGE}?text=${msg}`, "_blank");
 }
