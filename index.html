@@ -33,15 +33,15 @@ header p{font-size:13px;margin:3px 0;}
   border:none;
   border-radius:6px;
   font-size:18px;
-  color:#c40000;       /* text red */
-  background:white;    /* background white */
+  color:#c40000;
+  background:white;
   cursor:pointer;
   border:1px solid #c40000;
 }
 .qty-controls span{flex:1;text-align:center;font-weight:bold;}
-#cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
+#cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;z-index:100;}
 #cartBar button{background:#c40000;color:white;padding:8px 12px;border-radius:15px;font-weight:bold;}
-#cartModal{position:fixed;inset:0;background-color:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
+#cartModal{position:fixed;inset:0;background-color:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;z-index:200;}
 #cartModal .modal-content{background:white;border-radius:15px;max-width:400px;width:90%;padding:15px;}
 #cartItems{max-height:200px;overflow-y:auto;margin-bottom:10px;}
 #cartItems div{display:flex;justify-content:space-between;margin-bottom:5px;}
@@ -112,7 +112,7 @@ function setOrderType(btn){
 }
 
 // GOOGLE SHEET CONFIG
-const SHEET_ID="1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U"; // replace with your sheet ID
+const SHEET_ID="1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
 const SHEET_NAME="Menu";
 
 async function loadMenu(){
@@ -138,6 +138,7 @@ async function loadMenu(){
       if(!menu[cat]) menu[cat]=[];
       menu[cat].push({name,price,soldOut,spice,images});
 
+      // Only first category images for main slideshow
       if(Object.keys(menu).length===1 && images.length>0){
         images.forEach((img,i)=>{
           const imgel=document.createElement("img");
@@ -164,17 +165,47 @@ async function loadMenu(){
 
       const grid=document.createElement("div");
       grid.className="menu-grid";
+
       menu[cat].forEach((i,index)=>{
         const item=document.createElement("div");
         item.className="menu-item";
-        item.innerHTML=`<h4>${i.name}</h4><p>${i.spice?'Spice Option':''}</p><div class="price">₱${i.price}</div>
-        <div class="qty-controls">
-          <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},-1)">➖</button>
-          <span id="qty-${cat}-${index}">0</span>
-          <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},1)">➕</button>
-        </div>`;
+
+        let spiceHTML = '';
+        if(i.spice){
+          spiceHTML = `
+            <div class="mt-2">
+              <label class="text-sm mb-1">Spice Level:</label>
+              <select id="spice-${cat}-${index}" class="w-full border rounded p-1 text-sm">
+                <option value="Original">Original</option>
+                <option value="Mild Spicy">Mild Spicy</option>
+                <option value="Spicy">Spicy</option>
+                <option value="Extra Spicy">Extra Spicy</option>
+              </select>
+            </div>
+          `;
+        }
+
+        item.innerHTML = `
+          <h4>${i.name}</h4>
+          ${spiceHTML}
+          <div class="price">₱${i.price}</div>
+          <div class="qty-controls">
+            <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},-1)">➖</button>
+            <span id="qty-${cat}-${index}">0</span>
+            <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},1)">➕</button>
+          </div>
+        `;
+
+        if(i.spice){
+          const selectEl = item.querySelector(`#spice-${cat}-${index}`);
+          selectEl.onchange = ()=> {
+            if(order[`${cat}-${index}`]) order[`${cat}-${index}`].spice = selectEl.value;
+          };
+        }
+
         grid.appendChild(item);
       });
+
       catDiv.appendChild(grid);
       menuDiv.appendChild(catDiv);
     });
@@ -195,7 +226,7 @@ function toggleCategory(catDiv){
 }
 
 function changeQty(id,name,price,delta){
-  if(!order[id]) order[id]={name,price,qty:0};
+  if(!order[id]) order[id]={name,price,qty:0,spice:"Original"};
   order[id].qty+=delta;
   if(order[id].qty<0) order[id].qty=0;
   if(navigator.vibrate) navigator.vibrate(50);
@@ -204,10 +235,32 @@ function changeQty(id,name,price,delta){
   updateCart();
 }
 
-function updateCart(){cartQty=0;cartTotal=0;Object.values(order).forEach(i=>{cartQty+=i.qty;cartTotal+=i.qty*i.price;});document.getElementById("cartQty").innerText=cartQty;document.getElementById("cartTotal").innerText=cartTotal;document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";}
-function openCartModal(){const itemsDiv=document.getElementById("cartItems");itemsDiv.innerHTML="";Object.entries(order).forEach(([k,i])=>{const div=document.createElement("div");div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;itemsDiv.appendChild(div);});document.getElementById("modalTotal").innerText=cartTotal;document.getElementById("cartModal").style.display="flex";}
+function updateCart(){
+  cartQty=0; cartTotal=0;
+  Object.values(order).forEach(i=>{
+    cartQty+=i.qty;
+    cartTotal+=i.qty*i.price;
+  });
+  document.getElementById("cartQty").innerText=cartQty;
+  document.getElementById("cartTotal").innerText=cartTotal;
+  document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";
+}
+
+function openCartModal(){
+  const itemsDiv=document.getElementById("cartItems");
+  itemsDiv.innerHTML="";
+  Object.entries(order).forEach(([k,i])=>{
+    const div=document.createElement("div");
+    div.innerHTML=`${i.name} (${i.spice}) x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;
+    itemsDiv.appendChild(div);
+  });
+  document.getElementById("modalTotal").innerText=cartTotal;
+  document.getElementById("cartModal").style.display="flex";
+}
+
 function removeItem(k){delete order[k];updateCart();openCartModal();}
 function closeCartModal(){document.getElementById("cartModal").style.display="none";}
+
 function sendOrder(){
   if(cartQty===0) return alert("Cart is empty");
   const name=document.getElementById("customerName").value;
@@ -217,13 +270,13 @@ function sendOrder(){
   let msg=`📌 New Order\nName: ${name}\nContact: ${number}\nType: ${orderType}\n`;
   if(orderType==="Delivery") msg+=`Address: ${address}\n`;
   msg+="\nOrder:\n";
-  Object.values(order).forEach(i=>msg+=`• ${i.name} x${i.qty}\n`);
+  Object.values(order).forEach(i=>msg+=`• ${i.name} (${i.spice}) x${i.qty}\n`);
   msg+=`\nTotal: ₱${cartTotal}`;
   const encoded=encodeURIComponent(msg);
   window.open(`https://m.me/${FB_PAGE}?text=${encoded}`,"_blank");
 }
 
-// SLIDESHOW FUNCTIONS
+// SLIDESHOW
 let slideIndex=0;
 function showSlide(n){
   const slides=document.querySelectorAll("#slides img");
