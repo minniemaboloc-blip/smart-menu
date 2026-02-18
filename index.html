@@ -33,9 +33,10 @@ header p{font-size:13px;margin:3px 0;}
   border:none;
   border-radius:6px;
   font-size:18px;
-  color:white;
-  background:#c40000;
+  color:#c40000;       /* text red */
+  background:white;    /* background white */
   cursor:pointer;
+  border:1px solid #c40000;
 }
 .qty-controls span{flex:1;text-align:center;font-weight:bold;}
 #cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
@@ -52,8 +53,8 @@ input{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bott
 
 <header>
   <h1>📱Minchi's Smart Menu</h1>
-  <p>📍 Blk. 38, Lot 21, Phase 1, Elenita Heights Subdivision, Catalunan Grande, Davao City</p>
-  <p>📞 082-391-9679</p>
+  <p>📍 Blk. 38, Lot 21, Phase 1, Elenita Heights Subdivision, Catalunan Grande, Davao City </p>
+  <p>📞 082-391-9679 </p>
 </header>
 
 <div class="order-type">
@@ -110,37 +111,33 @@ function setOrderType(btn){
   document.getElementById("deliveryAddress").style.display=orderType==="Delivery"?"block":"none";
 }
 
-const SHEET_ID="1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
+// GOOGLE SHEET CONFIG
+const SHEET_ID="1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U"; // replace with your sheet ID
 const SHEET_NAME="Menu";
 
 async function loadMenu(){
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
-    const res = await fetch(url);
-    const text = await res.text();
-    const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}")+1);
-    const json = JSON.parse(jsonText);
-    const rows = json.table.rows;
-    if(!rows || rows.length===0) throw "No rows found";
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tqx=out:json`;
+    const res=await fetch(url);
+    const text=await res.text();
+    const json=JSON.parse(text.substring(text.indexOf("{"),text.lastIndexOf("}")+1));
+    const rows=json.table.rows;
+    const menuDiv=document.getElementById("menu");
+    const slidesDiv=document.getElementById("slides");
+    const dotsDiv=document.getElementById("dots");
+    let menu={};
 
-    const menuDiv = document.getElementById("menu");
-    const slidesDiv = document.getElementById("slides");
-    const dotsDiv = document.getElementById("dots");
-    let menu = {};
-
-    rows.forEach((r)=>{
-      if(!r.c || !r.c[0] || !r.c[1] || !r.c[2]) return;
-      const cat = r.c[0].v||"Uncategorized";
-      const name = r.c[1].v||"Unnamed";
-      const price = Number(r.c[2].v||0);
-      const soldOut = String(r.c[3]?.v||"").toUpperCase()==="TRUE";
-      const spice = String(r.c[4]?.v||"").toUpperCase()==="YES";
-      const images = r.c[5]?.v?r.c[5].v.split(","):[];
-
+    rows.forEach(r=>{
+      if(!r.c[0]) return;
+      const cat=r.c[0].v;
+      const name=r.c[1].v;
+      const price=Number(r.c[2].v);
+      const soldOut=String(r.c[3]?.v||"").toUpperCase()==="TRUE";
+      const spice=String(r.c[4]?.v||"").toUpperCase()==="YES";
+      const images=r.c[5]?.v?r.c[5].v.split(","):[];
       if(!menu[cat]) menu[cat]=[];
       menu[cat].push({name,price,soldOut,spice,images});
 
-      // First category slideshow
       if(Object.keys(menu).length===1 && images.length>0){
         images.forEach((img,i)=>{
           const imgel=document.createElement("img");
@@ -155,7 +152,6 @@ async function loadMenu(){
       }
     });
 
-    // Render categories and items
     Object.keys(menu).forEach(cat=>{
       const catDiv=document.createElement("div");
       catDiv.className="category";
@@ -168,13 +164,10 @@ async function loadMenu(){
 
       const grid=document.createElement("div");
       grid.className="menu-grid";
-
       menu[cat].forEach((i,index)=>{
         const item=document.createElement("div");
         item.className="menu-item";
-        item.innerHTML=`<h4>${i.name}</h4>
-        <p>${i.spice?'Spice Option':''}</p>
-        <div class="price">₱${i.price}</div>
+        item.innerHTML=`<h4>${i.name}</h4><p>${i.spice?'Spice Option':''}</p><div class="price">₱${i.price}</div>
         <div class="qty-controls">
           <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},-1)">➖</button>
           <span id="qty-${cat}-${index}">0</span>
@@ -187,7 +180,7 @@ async function loadMenu(){
     });
 
     startSlideShow();
-  } catch(e){console.error(e); document.getElementById("error").classList.remove("hidden");}
+  } catch(e){document.getElementById("error").classList.remove("hidden"); console.error(e);}
 }
 
 function toggleCategory(catDiv){
@@ -211,28 +204,10 @@ function changeQty(id,name,price,delta){
   updateCart();
 }
 
-function updateCart(){
-  cartQty=0; cartTotal=0;
-  Object.values(order).forEach(i=>{cartQty+=i.qty; cartTotal+=i.qty*i.price;});
-  document.getElementById("cartQty").innerText=cartQty;
-  document.getElementById("cartTotal").innerText=cartTotal;
-  document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";
-}
-
-function openCartModal(){
-  const itemsDiv=document.getElementById("cartItems"); itemsDiv.innerHTML="";
-  Object.entries(order).forEach(([k,i])=>{
-    const div=document.createElement("div");
-    div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;
-    itemsDiv.appendChild(div);
-  });
-  document.getElementById("modalTotal").innerText=cartTotal;
-  document.getElementById("cartModal").style.display="flex";
-}
-
+function updateCart(){cartQty=0;cartTotal=0;Object.values(order).forEach(i=>{cartQty+=i.qty;cartTotal+=i.qty*i.price;});document.getElementById("cartQty").innerText=cartQty;document.getElementById("cartTotal").innerText=cartTotal;document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";}
+function openCartModal(){const itemsDiv=document.getElementById("cartItems");itemsDiv.innerHTML="";Object.entries(order).forEach(([k,i])=>{const div=document.createElement("div");div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;itemsDiv.appendChild(div);});document.getElementById("modalTotal").innerText=cartTotal;document.getElementById("cartModal").style.display="flex";}
 function removeItem(k){delete order[k];updateCart();openCartModal();}
 function closeCartModal(){document.getElementById("cartModal").style.display="none";}
-
 function sendOrder(){
   if(cartQty===0) return alert("Cart is empty");
   const name=document.getElementById("customerName").value;
