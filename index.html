@@ -280,10 +280,12 @@ Type: ${orderType}
 
   msg+="\nOrder:\n";
   Object.values(order).forEach(i=>{
-    msg+=`• ${i.name}`;
-    if(i.spice) msg+=` (${i.spice})`;
-    msg+=` x${i.qty}\n`;
-  });
+  const subtotal = i.qty * i.price;
+
+  msg+=`• ${i.qty} x ${i.name}`;
+  if(i.spice) msg+=` (${i.spice})`;
+  msg+=` = ₱${subtotal}\n`;
+});
 
   msg+=`\nTotal: ₱${cartTotal}`;
   window.open(`https://m.me/${FB_PAGE}?text=${encodeURIComponent(msg)}`,"_blank");
