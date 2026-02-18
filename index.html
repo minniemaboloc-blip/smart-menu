@@ -3,17 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Menu</title>
+<title>Minchi's Smart Menu</title>
 <script src="https://cdn.tailwindcss.com"></script>
-<style>
-#cartModal { background-color: rgba(0,0,0,0.5); }
-</style>
 </head>
 
-<body class="bg-gray-50 text-gray-800 pb-28">
+<body class="bg-gray-100 pb-28">
 
 <script>
-/* ===== CONFIG ===== */
+/* CONFIG */
 const FB_PAGE = "minchis.dvo";
 const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
 const SHEET_NAME = "Menu";
@@ -21,242 +18,132 @@ const SHEET_NAME = "Menu";
 const order = {};
 let cartTotal = 0;
 let cartQty = 0;
-const deliveryFee = 0;
 </script>
 
 <div class="max-w-3xl mx-auto p-4">
 
-  <!-- Logo -->
-  <div class="text-center mb-2">
-    <img src="YOUR_LOGO_URL_HERE"
-         alt="Logo"
-         class="mx-auto h-16 w-auto">
-  </div>
+  <h1 class="text-2xl font-bold mb-4">Minchi's Menu</h1>
 
-  <h1 class="text-3xl font-bold text-center mb-1">
-    📱 Minchi's Smart Menu
-  </h1>
-  <p class="text-center text-sm mb-4">
-    Dine-in • Pickup • Delivery
-  </p>
-
-  <!-- Customer Info -->
-  <div class="bg-white p-4 rounded-xl shadow mb-4">
-    <input id="customerName" class="w-full border p-2 rounded mb-2"
-           placeholder="Your Name">
-    <input id="tableNumber" class="w-full border p-2 rounded"
-           placeholder="Table No. / Pickup">
-  </div>
-
-  <!-- Order Type -->
-  <div class="bg-white p-4 rounded-xl shadow mb-4">
-    <p class="font-semibold mb-2">Order Type</p>
-    <label class="block">
-      <input type="radio" name="orderType" value="Dine-in"
-             checked onchange="toggleAddress()"> Dine-in
-    </label>
-    <label class="block">
-      <input type="radio" name="orderType" value="Pickup"
-             onchange="toggleAddress()"> Pickup
-    </label>
-    <label class="block">
-      <input type="radio" name="orderType" value="Delivery"
-             onchange="toggleAddress()"> Delivery
-    </label>
-    <input id="deliveryAddress"
-           class="w-full border p-2 rounded mt-2 hidden"
-           placeholder="Delivery Address">
-  </div>
-
-  <!-- Menu -->
-  <div id="menu"></div>
-
-  <p id="error"
-     class="text-center text-red-600 font-semibold mt-4 hidden">
-    ⚠️ Menu failed to load
-  </p>
+  <!-- ✅ Responsive Grid -->
+  <div id="menu" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
 
 </div>
 
-<!-- Floating Cart -->
+<!-- FLOATING CART -->
 <div id="cartBar"
-     class="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 flex justify-between items-center hidden cursor-pointer"
-     onclick="openCartModal()">
+     class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t p-4 flex justify-between items-center hidden">
 
   <div>
-    <p class="font-semibold">
-      🛒 <span id="cartQty">0</span> item(s)
-    </p>
-    <p class="text-sm text-gray-600">
-      Total: ₱<span id="cartTotal">0</span>
-    </p>
+    <p class="font-semibold">🛒 <span id="cartQty">0</span> item(s)</p>
+    <p class="text-sm text-gray-600">₱<span id="cartTotal">0</span></p>
   </div>
 
-  <button class="bg-red-600 text-white px-6 py-2 rounded-xl font-semibold">
+  <button onclick="openCartModal()"
+          class="bg-green-600 text-white px-6 py-2 rounded-full font-semibold">
     View Cart
   </button>
 </div>
 
-<!-- Cart Modal -->
+<!-- CART MODAL -->
 <div id="cartModal"
-     class="fixed inset-0 hidden items-center justify-center backdrop-blur-sm">
+     class="fixed inset-0 hidden bg-black/50 items-center justify-center">
 
-  <div class="bg-white rounded-xl max-w-md w-full p-4">
-    <h2 class="text-xl font-bold mb-4">🛒 Your Cart</h2>
-    <div id="cartItems"
-         class="max-h-64 overflow-y-auto mb-4"></div>
+  <div class="bg-white w-full max-w-md rounded-xl p-4">
 
-    <div class="flex justify-between font-semibold text-lg mb-4">
+    <h2 class="text-xl font-bold mb-4">Your Cart</h2>
+
+    <div id="cartItems" class="max-h-60 overflow-y-auto mb-4"></div>
+
+    <div class="flex justify-between font-bold text-lg mb-4">
       <span>Total:</span>
       <span>₱<span id="modalTotal">0</span></span>
     </div>
 
-    <div class="flex justify-between">
-      <button onclick="closeCartModal()"
-              class="bg-gray-300 px-4 py-2 rounded-xl font-semibold">
-        Close
-      </button>
-      <button onclick="sendOrder()"
-              class="bg-red-600 text-white px-4 py-2 rounded-xl font-semibold">
-        Confirm Order
-      </button>
-    </div>
+    <input id="customerName"
+           class="w-full border p-3 rounded mb-2"
+           placeholder="Your Name">
+
+    <button onclick="sendOrder()"
+            class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold mb-2">
+      Confirm & Send to Messenger
+    </button>
+
+    <button onclick="closeCartModal()"
+            class="w-full bg-gray-300 py-2 rounded-xl">
+      Close
+    </button>
+
   </div>
 </div>
 
 <script>
 
-const deliveryAddress = document.getElementById("deliveryAddress");
-const customerName = document.getElementById("customerName");
-const tableNumber = document.getElementById("tableNumber");
-
-/* Toggle Address */
-function toggleAddress() {
-  const type = document.querySelector('input[name="orderType"]:checked').value;
-  deliveryAddress.classList.toggle("hidden", type !== "Delivery");
-}
-
-/* Load Menu */
+/* LOAD MENU */
 async function loadMenu() {
   try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(SHEET_NAME)}&tqx=out:json`;
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tqx=out:json`;
     const res = await fetch(url);
     const text = await res.text();
     const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
     const rows = json.table.rows;
 
-    const menu = {};
+    const menuDiv = document.getElementById("menu");
+    menuDiv.innerHTML = "";
+
     let id = 1;
 
     rows.forEach(r => {
       if (!r.c[0]) return;
 
-      const cat = r.c[0].v;
       const name = r.c[1].v;
       const price = Number(r.c[2].v);
-      const soldOut = String(r.c[3]?.v || "").toUpperCase() === "TRUE";
-      const spiceOption = String(r.c[4]?.v || "").toUpperCase() === "YES";
       const image = r.c[5]?.v || "";
+      const soldOut = String(r.c[3]?.v || "").toUpperCase() === "TRUE";
 
-      if (!menu[cat]) menu[cat] = [];
-      menu[cat].push({ id: id++, name, price, soldOut, spiceOption, image });
+      const card = document.createElement("div");
+      card.className = `bg-white rounded-2xl shadow p-2 relative ${soldOut ? "opacity-50 pointer-events-none" : ""}`;
+
+      card.innerHTML = `
+        <img src="${image}"
+             class="w-full h-36 object-cover rounded-xl mb-2"
+             onerror="this.src='https://via.placeholder.com/300x200'">
+
+        <p class="font-semibold text-sm">${name}</p>
+        <p class="font-bold text-sm">₱${price}</p>
+
+        <!-- ✅ Bigger Tap Button -->
+        <button onclick="changeQty(${id}, '${name}', ${price})"
+                class="absolute bottom-3 right-3 bg-green-600 text-white w-12 h-12 rounded-full text-xl shadow-lg flex items-center justify-center">
+          +
+        </button>
+      `;
+
+      menuDiv.appendChild(card);
+      id++;
     });
 
-    renderMenu(menu);
   } catch {
-    document.getElementById("error").classList.remove("hidden");
+    alert("Menu failed to load");
   }
 }
 
-/* Render Menu (2 Column Grab Style) */
-function renderMenu(menu) {
-  const menuDiv = document.getElementById("menu");
-  menuDiv.innerHTML = "";
+/* ADD TO CART */
+function changeQty(id, name, price) {
 
-  Object.keys(menu).forEach(cat => {
-    const section = document.createElement("div");
-    section.className = "mb-3 bg-white rounded-xl shadow";
+  if (!order[id]) {
+    order[id] = { name, price, qty: 0 };
+  }
 
-    section.innerHTML = `
-      <button onclick="toggleCategory(this)"
-        class="w-full flex justify-between items-center p-4 font-bold text-lg">
-        <span>${cat}</span>
-        <span class="text-xl">▾</span>
-      </button>
-      <div class="hidden px-4 pb-4 grid grid-cols-2 gap-3"></div>
-    `;
+  order[id].qty++;
 
-    const content = section.querySelector("div");
+  if (navigator.vibrate) navigator.vibrate(50);
 
-    menu[cat].forEach(item => {
-      const disabled = item.soldOut ? "opacity-50 pointer-events-none" : "";
-      const label = item.soldOut ? "❌ SOLD OUT" : `₱${item.price}`;
-
-      let spiceHTML = "";
-      if (item.spiceOption) {
-        spiceHTML = `
-          <select id="option-${item.id}"
-            class="w-full border rounded p-1 text-xs mt-1">
-            <option value="Original">Original</option>
-            <option value="Mild Spicy">Mild Spicy</option>
-            <option value="Spicy">Spicy</option>
-            <option value="Extra Spicy">Extra Spicy</option>
-          </select>
-        `;
-      }
-
-      const div = document.createElement("div");
-      div.className = `bg-gray-50 rounded-xl p-2 shadow-sm ${disabled}`;
-
-      div.innerHTML = `
-        <img src="${item.image}"
-             class="w-full h-28 object-cover rounded-lg mb-2"
-             onerror="this.src='https://via.placeholder.com/150'">
-
-        <p class="font-semibold text-sm">${item.name}</p>
-        <p class="text-xs text-gray-600">${label}</p>
-
-        ${spiceHTML}
-
-        <div class="flex justify-end items-center mt-2 gap-1">
-          <button class="px-2 bg-gray-200 rounded"
-            onclick="changeQty(${item.id}, '${item.name}', ${item.price}, -1)">−</button>
-
-          <span id="qty-${item.id}" class="text-sm w-5 text-center">0</span>
-
-          <button class="px-2 bg-red-600 text-white rounded"
-            onclick="changeQty(${item.id}, '${item.name}', ${item.price}, 1)">+</button>
-        </div>
-      `;
-
-      content.appendChild(div);
-    });
-
-    menuDiv.appendChild(section);
-  });
+  updateCart();
 }
 
-/* Auto Close Categories */
-function toggleCategory(btn) {
-  const allContents = document.querySelectorAll("#menu > div > div");
-
-  allContents.forEach(content => {
-    if (content !== btn.nextElementSibling) {
-      content.classList.add("hidden");
-      content.previousElementSibling.querySelector("span:last-child").innerText = "▾";
-    }
-  });
-
-  const content = btn.nextElementSibling;
-  content.classList.toggle("hidden");
-  btn.querySelector("span:last-child").innerText =
-    content.classList.contains("hidden") ? "▾" : "▴";
-}
-
-/* Cart Functions */
-function vibrate() { if (navigator.vibrate) navigator.vibrate(30); }
-
+/* UPDATE CART */
 function updateCart() {
+
   cartTotal = 0;
   cartQty = 0;
 
@@ -267,65 +154,75 @@ function updateCart() {
 
   document.getElementById("cartQty").innerText = cartQty;
   document.getElementById("cartTotal").innerText = cartTotal;
+
   document.getElementById("cartBar")
     .classList.toggle("hidden", cartQty === 0);
 }
 
-function changeQty(id, name, price, delta) {
-  if (!order[id]) {
-    const optionEl = document.getElementById(`option-${id}`);
-    const spice = optionEl ? optionEl.value : "Original";
-    order[id] = { name, price, qty: 0, spice };
-    if (optionEl) optionEl.onchange = () => order[id].spice = optionEl.value;
-  }
+/* OPEN MODAL */
+function openCartModal() {
 
-  order[id].qty += delta;
-  if (delta > 0) vibrate();
+  const modal = document.getElementById("cartModal");
+  const itemsDiv = document.getElementById("cartItems");
+  itemsDiv.innerHTML = "";
 
-  if (order[id].qty <= 0) {
-    delete order[id];
-    document.getElementById(`qty-${id}`).innerText = "0";
-  } else {
-    document.getElementById(`qty-${id}`).innerText = order[id].qty;
-  }
+  Object.values(order).forEach(i => {
 
-  updateCart();
+    const div = document.createElement("div");
+    div.className = "flex justify-between border-b py-2";
+
+    div.innerHTML = `
+      <div>
+        <p>${i.name}</p>
+        <p class="text-sm text-gray-600">
+          ₱${i.price} x ${i.qty}
+        </p>
+      </div>
+      <p class="font-semibold">
+        ₱${i.price * i.qty}
+      </p>
+    `;
+
+    itemsDiv.appendChild(div);
+  });
+
+  document.getElementById("modalTotal").innerText = cartTotal;
+
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
 }
 
-/* Send Order */
+/* CLOSE MODAL */
+function closeCartModal() {
+  const modal = document.getElementById("cartModal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+/* SEND ORDER */
 function sendOrder() {
-  if (!cartQty) return alert("No items selected");
 
-  const type = document.querySelector('input[name="orderType"]:checked').value;
+  if (!cartQty) return alert("Cart is empty");
 
-  if (!customerName.value.trim())
-    return alert("Please enter your name");
+  const name = document.getElementById("customerName").value;
+  if (!name.trim()) return alert("Enter your name");
 
-  if (type === "Delivery" && !deliveryAddress.value.trim())
-    return alert("Please enter delivery address");
-
-  let msg = `📌 New Order\n`;
-  msg += `Name: ${customerName.value}\n`;
-  msg += `Type: ${type}\n`;
-
-  if (type === "Delivery")
-    msg += `Address: ${deliveryAddress.value}\n`;
-
-  msg += `\nOrder:\n`;
+  let msg = `📌 New Order\n\n`;
+  msg += `Name: ${name}\n\n`;
 
   Object.values(order).forEach(i =>
-    msg += `• ${i.name} (${i.spice}) x${i.qty}\n`
+    msg += `• ${i.name} x${i.qty}\n`
   );
 
-  msg += `\nTotal: ₱${cartTotal + deliveryFee}`;
+  msg += `\nTotal: ₱${cartTotal}`;
 
-  window.open(
-    `https://m.me/${FB_PAGE}?text=${encodeURIComponent(msg)}`,
-    "_blank"
-  );
+  const encoded = encodeURIComponent(msg);
+
+  window.open(`https://m.me/${FB_PAGE}?text=${encoded}`, "_blank");
 }
 
 loadMenu();
+
 </script>
 
 </body>
