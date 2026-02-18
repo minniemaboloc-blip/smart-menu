@@ -16,14 +16,12 @@ header p{font-size:13px;margin:3px 0;}
 .category{background:white;margin:10px;border-radius:15px;overflow:hidden;}
 .slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
 .slider img{width:100%;height:180px;object-fit:cover;flex:0 0 100%;scroll-snap-align:start;}
-.category-title{padding:10px 15px;font-weight:bold;font-size:18px;color:#c40000;}
-.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 15px 10px;}
+.category-title{padding:10px 15px;font-weight:bold;font-size:18px;color:#c40000;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 15px 10px;display:none;}
 .menu-item{background:#fafafa;padding:10px;border-radius:10px;border:1px solid #eee;}
 .menu-item h4{margin:0;font-size:14px;}
 .menu-item p{margin:5px 0 0;font-size:12px;color:#666;}
 .price{margin-top:5px;font-weight:bold;color:#c40000;}
-.dropdown{padding:0 15px 10px;}
-select{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;}
 #cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
 #cartBar button{background:#c40000;color:white;padding:8px 12px;border-radius:15px;font-weight:bold;}
 #cartModal{position:fixed;inset:0;background-color:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
@@ -92,8 +90,8 @@ function setOrderType(btn){
   document.getElementById("deliveryAddress").style.display=orderType==="Delivery"?"block":"none";
 }
 
-// LOAD MENU FROM GOOGLE SHEET
-const SHEET_ID="YOUR_SHEET_ID";
+// GOOGLE SHEET CONFIG
+const SHEET_ID="YOUR_SHEET_ID"; // <-- replace with your sheet ID
 const SHEET_NAME="Menu";
 
 async function loadMenu(){
@@ -118,15 +116,14 @@ async function loadMenu(){
       menu[cat].push({name,price,soldOut,spice,images});
     });
 
-    // Render
     Object.keys(menu).forEach(cat=>{
       const catDiv=document.createElement("div");
       catDiv.className="category";
 
       // Slider
-      const slider=document.createElement("div");
-      slider.className="slider";
       if(menu[cat][0].images.length>0){
+        const slider=document.createElement("div");
+        slider.className="slider";
         menu[cat][0].images.forEach(img=>{
           const imgel=document.createElement("img");
           imgel.src=img.trim();
@@ -135,13 +132,14 @@ async function loadMenu(){
         catDiv.appendChild(slider);
       }
 
-      // Title
+      // Title (clickable)
       const title=document.createElement("div");
       title.className="category-title";
-      title.innerText=cat;
+      title.innerHTML=`${cat} <span>▾</span>`;
+      title.onclick=()=>toggleCategory(catDiv);
       catDiv.appendChild(title);
 
-      // Items
+      // Menu grid (initially hidden)
       const grid=document.createElement("div");
       grid.className="menu-grid";
       menu[cat].forEach((i,index)=>{
@@ -158,6 +156,19 @@ async function loadMenu(){
     document.getElementById("error").classList.remove("hidden");
     console.error(e);
   }
+}
+
+// Auto-close dropdown function
+function toggleCategory(catDiv){
+  const allCats=document.querySelectorAll(".category");
+  allCats.forEach(c=>{
+    if(c!==catDiv)c.querySelector(".menu-grid").style.display="none";
+    if(c!==catDiv)c.querySelector(".category-title span").innerText="▾";
+  });
+  const grid=catDiv.querySelector(".menu-grid");
+  const arrow=catDiv.querySelector(".category-title span");
+  if(grid.style.display==="grid"){grid.style.display="none"; arrow.innerText="▾";}
+  else{grid.style.display="grid"; arrow.innerText="▴";}
 }
 
 // CART FUNCTIONS
