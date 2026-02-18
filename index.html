@@ -13,15 +13,22 @@ header p{font-size:13px;margin:3px 0;}
 .order-type{display:flex;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;}
 .order-type button{flex:0 0 auto;padding:8px 15px;border-radius:20px;border:1px solid #c40000;background:white;color:#c40000;font-size:13px;cursor:pointer;}
 .order-type button.active{background:#c40000;color:white;}
+#mainSlider{position:relative;overflow:hidden;margin:10px;}
+#mainSlider .slides{display:flex;transition:transform 0.5s ease;}
+#mainSlider img{width:100%;height:180px;object-fit:cover;flex-shrink:0;border-radius:15px;margin-bottom:10px;}
+#dots{display:flex;justify-content:center;margin:5px 0;}
+.dot{height:10px;width:10px;margin:0 3px;background:#ccc;border-radius:50%;display:inline-block;cursor:pointer;}
+.dot.active{background:#c40000;}
 .category{background:white;margin:10px;border-radius:15px;overflow:hidden;}
-.slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
-.slider img{width:100%;height:180px;object-fit:cover;flex:0 0 100%;scroll-snap-align:start;}
 .category-title{padding:10px 15px;font-weight:bold;font-size:18px;color:#c40000;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
 .menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 15px 10px;display:none;}
-.menu-item{background:#fafafa;padding:10px;border-radius:10px;border:1px solid #eee;}
+.menu-item{background:#fafafa;padding:10px;border-radius:10px;border:1px solid #eee;display:flex;flex-direction:column;}
 .menu-item h4{margin:0;font-size:14px;}
 .menu-item p{margin:5px 0 0;font-size:12px;color:#666;}
 .price{margin-top:5px;font-weight:bold;color:#c40000;}
+.qty-controls{display:flex;justify-content:space-between;align-items:center;margin-top:5px;}
+.qty-controls button{width:32px;height:32px;border:none;border-radius:6px;font-size:18px;color:white;background:#c40000;cursor:pointer;}
+.qty-controls span{flex:1;text-align:center;font-weight:bold;}
 #cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
 #cartBar button{background:#c40000;color:white;padding:8px 12px;border-radius:15px;font-weight:bold;}
 #cartModal{position:fixed;inset:0;background-color:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
@@ -53,6 +60,12 @@ input{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bott
   <input type="text" id="deliveryAddress" placeholder="Delivery Address" style="display:none;">
 </div>
 
+<!-- MAIN SLIDESHOW -->
+<div id="mainSlider">
+  <div class="slides" id="slides"></div>
+  <div id="dots"></div>
+</div>
+
 <div id="menu"></div>
 <p id="error" class="text-center text-red-600 font-semibold mt-4 hidden">⚠️ Menu failed to load</p>
 
@@ -79,9 +92,7 @@ input{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bott
 
 <script>
 const FB_PAGE="minchis.dvo";
-let order={};
-let cartQty=0,cartTotal=0;
-let orderType="Dine-In";
+let order={},cartQty=0,cartTotal=0,orderType="Dine-In";
 
 function setOrderType(btn){
   document.querySelectorAll(".order-type button").forEach(b=>b.classList.remove("active"));
@@ -91,7 +102,7 @@ function setOrderType(btn){
 }
 
 // GOOGLE SHEET CONFIG
-const SHEET_ID="1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U"; // <-- replace with your sheet ID
+const SHEET_ID="YOUR_SHEET_ID"; // replace with your sheet ID
 const SHEET_NAME="Menu";
 
 async function loadMenu(){
@@ -102,6 +113,8 @@ async function loadMenu(){
     const json=JSON.parse(text.substring(text.indexOf("{"),text.lastIndexOf("}")+1));
     const rows=json.table.rows;
     const menuDiv=document.getElementById("menu");
+    const slidesDiv=document.getElementById("slides");
+    const dotsDiv=document.getElementById("dots");
     let menu={};
 
     rows.forEach(r=>{
@@ -114,54 +127,60 @@ async function loadMenu(){
       const images=r.c[5]?.v?r.c[5].v.split(","):[];
       if(!menu[cat]) menu[cat]=[];
       menu[cat].push({name,price,soldOut,spice,images});
+
+      // Only first category images for main slideshow
+      if(Object.keys(menu).length===1 && images.length>0){
+        images.forEach((img,i)=>{
+          const imgel=document.createElement("img");
+          imgel.src=img.trim();
+          slidesDiv.appendChild(imgel);
+
+          // dots
+          const dot=document.createElement("span");
+          dot.className="dot"+(i===0?" active":"");
+          dot.onclick=()=>showSlide(i);
+          dotsDiv.appendChild(dot);
+        });
+      }
     });
 
+    // Render menu categories
     Object.keys(menu).forEach(cat=>{
       const catDiv=document.createElement("div");
       catDiv.className="category";
 
-      // Slider
-      if(menu[cat][0].images.length>0){
-        const slider=document.createElement("div");
-        slider.className="slider";
-        menu[cat][0].images.forEach(img=>{
-          const imgel=document.createElement("img");
-          imgel.src=img.trim();
-          slider.appendChild(imgel);
-        });
-        catDiv.appendChild(slider);
-      }
-
-      // Title (clickable)
+      // Title
       const title=document.createElement("div");
       title.className="category-title";
       title.innerHTML=`${cat} <span>▾</span>`;
       title.onclick=()=>toggleCategory(catDiv);
       catDiv.appendChild(title);
 
-      // Menu grid (initially hidden)
+      // Menu grid
       const grid=document.createElement("div");
       grid.className="menu-grid";
       menu[cat].forEach((i,index)=>{
         const item=document.createElement("div");
         item.className="menu-item";
         item.innerHTML=`<h4>${i.name}</h4><p>${i.spice?'Spice Option':''}</p><div class="price">₱${i.price}</div>
-        <button onclick="addToCart('${cat}-${index}','${i.name}',${i.price})" style="background:#c40000;color:white;padding:5px 10px;margin-top:5px;border:none;border-radius:8px;width:100%;">Add</button>`;
+        <div class="qty-controls">
+          <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},-1)">➖</button>
+          <span id="qty-${cat}-${index}">0</span>
+          <button onclick="changeQty('${cat}-${index}','${i.name}',${i.price},1)">➕</button>
+        </div>`;
         grid.appendChild(item);
       });
       catDiv.appendChild(grid);
       menuDiv.appendChild(catDiv);
     });
-  } catch(e){
-    document.getElementById("error").classList.remove("hidden");
-    console.error(e);
-  }
+
+    startSlideShow();
+  } catch(e){document.getElementById("error").classList.remove("hidden"); console.error(e);}
 }
 
-// Auto-close dropdown function
+// Auto-close dropdown
 function toggleCategory(catDiv){
-  const allCats=document.querySelectorAll(".category");
-  allCats.forEach(c=>{
+  document.querySelectorAll(".category").forEach(c=>{
     if(c!==catDiv)c.querySelector(".menu-grid").style.display="none";
     if(c!==catDiv)c.querySelector(".category-title span").innerText="▾";
   });
@@ -172,7 +191,15 @@ function toggleCategory(catDiv){
 }
 
 // CART FUNCTIONS
-function addToCart(id,name,price){if(!order[id]) order[id]={name,price,qty:0};order[id].qty++;updateCart();if(navigator.vibrate) navigator.vibrate(50);}
+function changeQty(id,name,price,delta){
+  if(!order[id]) order[id]={name,price,qty:0};
+  order[id].qty+=delta;
+  if(order[id].qty<0) order[id].qty=0;
+  if(navigator.vibrate) navigator.vibrate(50);
+  document.getElementById(`qty-${id}`).innerText=order[id].qty;
+  if(order[id].qty===0) delete order[id];
+  updateCart();
+}
 function updateCart(){cartQty=0;cartTotal=0;Object.values(order).forEach(i=>{cartQty+=i.qty;cartTotal+=i.qty*i.price;});document.getElementById("cartQty").innerText=cartQty;document.getElementById("cartTotal").innerText=cartTotal;document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";}
 function openCartModal(){const itemsDiv=document.getElementById("cartItems");itemsDiv.innerHTML="";Object.entries(order).forEach(([k,i])=>{const div=document.createElement("div");div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;itemsDiv.appendChild(div);});document.getElementById("modalTotal").innerText=cartTotal;document.getElementById("cartModal").style.display="flex";}
 function removeItem(k){delete order[k];updateCart();openCartModal();}
@@ -191,6 +218,20 @@ function sendOrder(){
   const encoded=encodeURIComponent(msg);
   window.open(`https://m.me/${FB_PAGE}?text=${encoded}`,"_blank");
 }
+
+// SLIDESHOW FUNCTIONS
+let slideIndex=0;
+function showSlide(n){
+  const slides=document.querySelectorAll("#slides img");
+  const dots=document.querySelectorAll(".dot");
+  if(n>=slides.length) n=0;
+  if(n<0) n=slides.length-1;
+  slideIndex=n;
+  slides.forEach((s,i)=>s.style.display=i===n?"block":"none");
+  dots.forEach((d,i)=>d.classList.toggle("active",i===n));
+}
+function nextSlide(){showSlide(slideIndex+1);}
+function startSlideShow(){showSlide(0); setInterval(nextSlide,3000);}
 
 loadMenu();
 </script>
