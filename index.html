@@ -27,7 +27,17 @@ header p{font-size:13px;margin:3px 0;}
 .menu-item p{margin:5px 0 0;font-size:12px;color:#666;}
 .price{margin-top:5px;font-weight:bold;color:#c40000;}
 .qty-controls{display:flex;justify-content:space-between;align-items:center;margin-top:5px;}
-.qty-controls button{width:32px;height:32px;border:none;border-radius:6px;font-size:18px;color:white;background:#c40000;cursor:pointer;}
+.qty-controls button{
+  width:32px;
+  height:32px;
+  border:none;
+  border-radius:6px;
+  font-size:18px;
+  color:#c40000;       /* text red */
+  background:white;    /* background white */
+  cursor:pointer;
+  border:1px solid #c40000;
+}
 .qty-controls span{flex:1;text-align:center;font-weight:bold;}
 #cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
 #cartBar button{background:#c40000;color:white;padding:8px 12px;border-radius:15px;font-weight:bold;}
@@ -44,7 +54,7 @@ input{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bott
 <header>
   <h1>📱Minchi's Smart Menu</h1>
   <p>📍 Blk. 38, Lot 21, Phase 1, Elenita Heights Subdivision, Catalunan Grande, Davao City </p>
-  <p>📞 082 391 9679</p>
+  <p>📞 082-391-9679 </p>
 </header>
 
 <div class="order-type">
@@ -128,14 +138,12 @@ async function loadMenu(){
       if(!menu[cat]) menu[cat]=[];
       menu[cat].push({name,price,soldOut,spice,images});
 
-      // Only first category images for main slideshow
       if(Object.keys(menu).length===1 && images.length>0){
         images.forEach((img,i)=>{
           const imgel=document.createElement("img");
           imgel.src=img.trim();
           slidesDiv.appendChild(imgel);
 
-          // dots
           const dot=document.createElement("span");
           dot.className="dot"+(i===0?" active":"");
           dot.onclick=()=>showSlide(i);
@@ -144,19 +152,16 @@ async function loadMenu(){
       }
     });
 
-    // Render menu categories
     Object.keys(menu).forEach(cat=>{
       const catDiv=document.createElement("div");
       catDiv.className="category";
 
-      // Title
       const title=document.createElement("div");
       title.className="category-title";
       title.innerHTML=`${cat} <span>▾</span>`;
       title.onclick=()=>toggleCategory(catDiv);
       catDiv.appendChild(title);
 
-      // Menu grid
       const grid=document.createElement("div");
       grid.className="menu-grid";
       menu[cat].forEach((i,index)=>{
@@ -178,7 +183,6 @@ async function loadMenu(){
   } catch(e){document.getElementById("error").classList.remove("hidden"); console.error(e);}
 }
 
-// Auto-close dropdown
 function toggleCategory(catDiv){
   document.querySelectorAll(".category").forEach(c=>{
     if(c!==catDiv)c.querySelector(".menu-grid").style.display="none";
@@ -190,7 +194,6 @@ function toggleCategory(catDiv){
   else{grid.style.display="grid"; arrow.innerText="▴";}
 }
 
-// CART FUNCTIONS
 function changeQty(id,name,price,delta){
   if(!order[id]) order[id]={name,price,qty:0};
   order[id].qty+=delta;
@@ -200,6 +203,7 @@ function changeQty(id,name,price,delta){
   if(order[id].qty===0) delete order[id];
   updateCart();
 }
+
 function updateCart(){cartQty=0;cartTotal=0;Object.values(order).forEach(i=>{cartQty+=i.qty;cartTotal+=i.qty*i.price;});document.getElementById("cartQty").innerText=cartQty;document.getElementById("cartTotal").innerText=cartTotal;document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";}
 function openCartModal(){const itemsDiv=document.getElementById("cartItems");itemsDiv.innerHTML="";Object.entries(order).forEach(([k,i])=>{const div=document.createElement("div");div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;itemsDiv.appendChild(div);});document.getElementById("modalTotal").innerText=cartTotal;document.getElementById("cartModal").style.display="flex";}
 function removeItem(k){delete order[k];updateCart();openCartModal();}
