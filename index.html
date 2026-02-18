@@ -3,226 +3,185 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Minchi's Smart Menu</title>
+<title>📱Minchi's Smart Menu</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#f8f8f8;font-family:sans-serif;padding-bottom:28px;}
+header{background:#c40000;color:white;padding:15px;text-align:center;}
+header h1{font-size:22px;font-weight:bold;margin:0;}
+header p{font-size:13px;margin:3px 0;}
+.order-type{display:flex;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;}
+.order-type button{flex:0 0 auto;padding:8px 15px;border-radius:20px;border:1px solid #c40000;background:white;color:#c40000;font-size:13px;cursor:pointer;}
+.order-type button.active{background:#c40000;color:white;}
+.category{background:white;margin:10px;border-radius:15px;overflow:hidden;}
+.slider{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;}
+.slider img{width:100%;height:180px;object-fit:cover;flex:0 0 100%;scroll-snap-align:start;}
+.category-title{padding:10px 15px;font-weight:bold;font-size:18px;color:#c40000;}
+.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 15px 10px;}
+.menu-item{background:#fafafa;padding:10px;border-radius:10px;border:1px solid #eee;}
+.menu-item h4{margin:0;font-size:14px;}
+.menu-item p{margin:5px 0 0;font-size:12px;color:#666;}
+.price{margin-top:5px;font-weight:bold;color:#c40000;}
+.dropdown{padding:0 15px 10px;}
+select{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;}
+#cartBar{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ccc;box-shadow:0 -2px 6px rgba(0,0,0,0.1);display:flex;justify-content:space-between;align-items:center;padding:10px 15px;cursor:pointer;display:none;}
+#cartBar button{background:#c40000;color:white;padding:8px 12px;border-radius:15px;font-weight:bold;}
+#cartModal{position:fixed;inset:0;background-color:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
+#cartModal .modal-content{background:white;border-radius:15px;max-width:400px;width:90%;padding:15px;}
+#cartItems{max-height:200px;overflow-y:auto;margin-bottom:10px;}
+#cartItems div{display:flex;justify-content:space-between;margin-bottom:5px;}
+#cartItems button{margin-left:5px;padding:2px 5px;border-radius:5px;font-size:12px;}
+input{width:100%;padding:8px;border-radius:8px;border:1px solid #ccc;margin-bottom:5px;}
+</style>
 </head>
+<body>
 
-<body class="bg-gray-100 pb-28">
+<header>
+  <h1>📱Minchi's Smart Menu</h1>
+  <p>📍 123 Main Street, Davao</p>
+  <p>📞 0912 345 6789</p>
+</header>
 
-<script>
-/* CONFIG */
-const FB_PAGE = "minchis.dvo";
-const SHEET_ID = "1ufX4XtO7L4q5BjyeSYWxR-B8MxTCYJ3IMSr2PFZQQ6U";
-const SHEET_NAME = "Menu";
-
-const order = {};
-let cartTotal = 0;
-let cartQty = 0;
-</script>
-
-<div class="max-w-3xl mx-auto p-4">
-
-  <h1 class="text-2xl font-bold mb-4">Minchi's Menu</h1>
-
-  <!-- ✅ Responsive Grid -->
-  <div id="menu" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-
+<div class="order-type">
+  <button class="active" onclick="setOrderType(this)">Dine-In</button>
+  <button onclick="setOrderType(this)">Takeout</button>
+  <button onclick="setOrderType(this)">Pickup</button>
+  <button onclick="setOrderType(this)">Delivery</button>
 </div>
 
-<!-- FLOATING CART -->
-<div id="cartBar"
-     class="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t p-4 flex justify-between items-center hidden">
+<div class="px-4 mb-4">
+  <input type="text" id="customerName" placeholder="Your Name">
+  <input type="text" id="customerNumber" placeholder="Contact Number">
+  <input type="text" id="deliveryAddress" placeholder="Delivery Address" style="display:none;">
+</div>
 
+<div id="menu"></div>
+<p id="error" class="text-center text-red-600 font-semibold mt-4 hidden">⚠️ Menu failed to load</p>
+
+<div id="cartBar" onclick="openCartModal()">
   <div>
-    <p class="font-semibold">🛒 <span id="cartQty">0</span> item(s)</p>
-    <p class="text-sm text-gray-600">₱<span id="cartTotal">0</span></p>
+    🛒 <span id="cartQty">0</span> item(s)<br>
+    Total: ₱<span id="cartTotal">0</span>
   </div>
-
-  <button onclick="openCartModal()"
-          class="bg-green-600 text-white px-6 py-2 rounded-full font-semibold">
-    View Cart
-  </button>
+  <button>View Cart</button>
 </div>
 
-<!-- CART MODAL -->
-<div id="cartModal"
-     class="fixed inset-0 hidden bg-black/50 items-center justify-center">
-
-  <div class="bg-white w-full max-w-md rounded-xl p-4">
-
-    <h2 class="text-xl font-bold mb-4">Your Cart</h2>
-
-    <div id="cartItems" class="max-h-60 overflow-y-auto mb-4"></div>
-
-    <div class="flex justify-between font-bold text-lg mb-4">
+<div id="cartModal">
+  <div class="modal-content">
+    <h2 class="text-lg font-bold mb-2">🛒 Your Cart</h2>
+    <div id="cartItems"></div>
+    <div class="flex justify-between font-bold mb-2">
       <span>Total:</span>
       <span>₱<span id="modalTotal">0</span></span>
     </div>
-
-    <input id="customerName"
-           class="w-full border p-3 rounded mb-2"
-           placeholder="Your Name">
-
-    <button onclick="sendOrder()"
-            class="w-full bg-green-600 text-white py-3 rounded-xl font-semibold mb-2">
-      Confirm & Send to Messenger
-    </button>
-
-    <button onclick="closeCartModal()"
-            class="w-full bg-gray-300 py-2 rounded-xl">
-      Close
-    </button>
-
+    <button onclick="closeCartModal()" style="background:#ccc;color:black;width:48%;border:none;">Close</button>
+    <button onclick="sendOrder()" style="background:#c40000;color:white;width:48%;border:none;">Confirm Order</button>
   </div>
 </div>
 
 <script>
+const FB_PAGE="minchis.dvo";
+let order={};
+let cartQty=0,cartTotal=0;
+let orderType="Dine-In";
 
-/* LOAD MENU */
-async function loadMenu() {
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tqx=out:json`;
-    const res = await fetch(url);
-    const text = await res.text();
-    const json = JSON.parse(text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1));
-    const rows = json.table.rows;
+function setOrderType(btn){
+  document.querySelectorAll(".order-type button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  orderType=btn.innerText;
+  document.getElementById("deliveryAddress").style.display=orderType==="Delivery"?"block":"none";
+}
 
-    const menuDiv = document.getElementById("menu");
-    menuDiv.innerHTML = "";
+// LOAD MENU FROM GOOGLE SHEET
+const SHEET_ID="YOUR_SHEET_ID";
+const SHEET_NAME="Menu";
 
-    let id = 1;
+async function loadMenu(){
+  try{
+    const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?sheet=${SHEET_NAME}&tqx=out:json`;
+    const res=await fetch(url);
+    const text=await res.text();
+    const json=JSON.parse(text.substring(text.indexOf("{"),text.lastIndexOf("}")+1));
+    const rows=json.table.rows;
+    const menuDiv=document.getElementById("menu");
+    let menu={};
 
-    rows.forEach(r => {
-      if (!r.c[0]) return;
-
-      const name = r.c[1].v;
-      const price = Number(r.c[2].v);
-      const image = r.c[5]?.v || "";
-      const soldOut = String(r.c[3]?.v || "").toUpperCase() === "TRUE";
-
-      const card = document.createElement("div");
-      card.className = `bg-white rounded-2xl shadow p-2 relative ${soldOut ? "opacity-50 pointer-events-none" : ""}`;
-
-      card.innerHTML = `
-        <img src="${image}"
-             class="w-full h-36 object-cover rounded-xl mb-2"
-             onerror="this.src='https://via.placeholder.com/300x200'">
-
-        <p class="font-semibold text-sm">${name}</p>
-        <p class="font-bold text-sm">₱${price}</p>
-
-        <!-- ✅ Bigger Tap Button -->
-        <button onclick="changeQty(${id}, '${name}', ${price})"
-                class="absolute bottom-3 right-3 bg-green-600 text-white w-12 h-12 rounded-full text-xl shadow-lg flex items-center justify-center">
-          +
-        </button>
-      `;
-
-      menuDiv.appendChild(card);
-      id++;
+    rows.forEach(r=>{
+      if(!r.c[0]) return;
+      const cat=r.c[0].v;
+      const name=r.c[1].v;
+      const price=Number(r.c[2].v);
+      const soldOut=String(r.c[3]?.v||"").toUpperCase()==="TRUE";
+      const spice=String(r.c[4]?.v||"").toUpperCase()==="YES";
+      const images=r.c[5]?.v?r.c[5].v.split(","):[];
+      if(!menu[cat]) menu[cat]=[];
+      menu[cat].push({name,price,soldOut,spice,images});
     });
 
-  } catch {
-    alert("Menu failed to load");
+    // Render
+    Object.keys(menu).forEach(cat=>{
+      const catDiv=document.createElement("div");
+      catDiv.className="category";
+
+      // Slider
+      const slider=document.createElement("div");
+      slider.className="slider";
+      if(menu[cat][0].images.length>0){
+        menu[cat][0].images.forEach(img=>{
+          const imgel=document.createElement("img");
+          imgel.src=img.trim();
+          slider.appendChild(imgel);
+        });
+        catDiv.appendChild(slider);
+      }
+
+      // Title
+      const title=document.createElement("div");
+      title.className="category-title";
+      title.innerText=cat;
+      catDiv.appendChild(title);
+
+      // Items
+      const grid=document.createElement("div");
+      grid.className="menu-grid";
+      menu[cat].forEach((i,index)=>{
+        const item=document.createElement("div");
+        item.className="menu-item";
+        item.innerHTML=`<h4>${i.name}</h4><p>${i.spice?'Spice Option':''}</p><div class="price">₱${i.price}</div>
+        <button onclick="addToCart('${cat}-${index}','${i.name}',${i.price})" style="background:#c40000;color:white;padding:5px 10px;margin-top:5px;border:none;border-radius:8px;width:100%;">Add</button>`;
+        grid.appendChild(item);
+      });
+      catDiv.appendChild(grid);
+      menuDiv.appendChild(catDiv);
+    });
+  } catch(e){
+    document.getElementById("error").classList.remove("hidden");
+    console.error(e);
   }
 }
 
-/* ADD TO CART */
-function changeQty(id, name, price) {
-
-  if (!order[id]) {
-    order[id] = { name, price, qty: 0 };
-  }
-
-  order[id].qty++;
-
-  if (navigator.vibrate) navigator.vibrate(50);
-
-  updateCart();
-}
-
-/* UPDATE CART */
-function updateCart() {
-
-  cartTotal = 0;
-  cartQty = 0;
-
-  Object.values(order).forEach(i => {
-    cartQty += i.qty;
-    cartTotal += i.qty * i.price;
-  });
-
-  document.getElementById("cartQty").innerText = cartQty;
-  document.getElementById("cartTotal").innerText = cartTotal;
-
-  document.getElementById("cartBar")
-    .classList.toggle("hidden", cartQty === 0);
-}
-
-/* OPEN MODAL */
-function openCartModal() {
-
-  const modal = document.getElementById("cartModal");
-  const itemsDiv = document.getElementById("cartItems");
-  itemsDiv.innerHTML = "";
-
-  Object.values(order).forEach(i => {
-
-    const div = document.createElement("div");
-    div.className = "flex justify-between border-b py-2";
-
-    div.innerHTML = `
-      <div>
-        <p>${i.name}</p>
-        <p class="text-sm text-gray-600">
-          ₱${i.price} x ${i.qty}
-        </p>
-      </div>
-      <p class="font-semibold">
-        ₱${i.price * i.qty}
-      </p>
-    `;
-
-    itemsDiv.appendChild(div);
-  });
-
-  document.getElementById("modalTotal").innerText = cartTotal;
-
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-}
-
-/* CLOSE MODAL */
-function closeCartModal() {
-  const modal = document.getElementById("cartModal");
-  modal.classList.add("hidden");
-  modal.classList.remove("flex");
-}
-
-/* SEND ORDER */
-function sendOrder() {
-
-  if (!cartQty) return alert("Cart is empty");
-
-  const name = document.getElementById("customerName").value;
-  if (!name.trim()) return alert("Enter your name");
-
-  let msg = `📌 New Order\n\n`;
-  msg += `Name: ${name}\n\n`;
-
-  Object.values(order).forEach(i =>
-    msg += `• ${i.name} x${i.qty}\n`
-  );
-
-  msg += `\nTotal: ₱${cartTotal}`;
-
-  const encoded = encodeURIComponent(msg);
-
-  window.open(`https://m.me/${FB_PAGE}?text=${encoded}`, "_blank");
+// CART FUNCTIONS
+function addToCart(id,name,price){if(!order[id]) order[id]={name,price,qty:0};order[id].qty++;updateCart();if(navigator.vibrate) navigator.vibrate(50);}
+function updateCart(){cartQty=0;cartTotal=0;Object.values(order).forEach(i=>{cartQty+=i.qty;cartTotal+=i.qty*i.price;});document.getElementById("cartQty").innerText=cartQty;document.getElementById("cartTotal").innerText=cartTotal;document.getElementById("cartBar").style.display=cartQty>0?"flex":"none";}
+function openCartModal(){const itemsDiv=document.getElementById("cartItems");itemsDiv.innerHTML="";Object.entries(order).forEach(([k,i])=>{const div=document.createElement("div");div.innerHTML=`${i.name} x${i.qty} = ₱${i.price*i.qty} <button onclick="removeItem('${k}')">✕</button>`;itemsDiv.appendChild(div);});document.getElementById("modalTotal").innerText=cartTotal;document.getElementById("cartModal").style.display="flex";}
+function removeItem(k){delete order[k];updateCart();openCartModal();}
+function closeCartModal(){document.getElementById("cartModal").style.display="none";}
+function sendOrder(){
+  if(cartQty===0) return alert("Cart is empty");
+  const name=document.getElementById("customerName").value;
+  const number=document.getElementById("customerNumber").value;
+  const address=document.getElementById("deliveryAddress").value;
+  if(!name.trim()) return alert("Enter your name");
+  let msg=`📌 New Order\nName: ${name}\nContact: ${number}\nType: ${orderType}\n`;
+  if(orderType==="Delivery") msg+=`Address: ${address}\n`;
+  msg+="\nOrder:\n";
+  Object.values(order).forEach(i=>msg+=`• ${i.name} x${i.qty}\n`);
+  msg+=`\nTotal: ₱${cartTotal}`;
+  const encoded=encodeURIComponent(msg);
+  window.open(`https://m.me/${FB_PAGE}?text=${encoded}`,"_blank");
 }
 
 loadMenu();
-
 </script>
 
 </body>
